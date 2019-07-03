@@ -1,0 +1,142 @@
+<html>
+<head>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.8.2/css/all.min.css"
+          integrity="sha256-BtbhCIbtfeVWGsqxk1vOHEYXS6qcvQvLMZqjtpWUEx8=" crossorigin="anonymous"/>
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"
+            integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+            crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"
+            integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49"
+            crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"
+            integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0/dist/Chart.min.js"></script>
+    <title>Codebreaker UI</title>
+</head>
+<body>
+<div class="container">
+    <div class="row p-lg-2">
+        <div class="col-lg-6">
+            <form>
+                <div class="form-group">
+                    <label for="bankCodeAnalyzer">Enter text to be analyzed here:</label>
+                    <textarea class="form-control" id="bankCodeAnalyzer" rows="9"></textarea>
+                </div>
+                <div class="form-group">
+                    <p id="loader" hidden="hidden"><i class="fa fa-spinner fa-spin"></i> Analyzing Text...</p>
+                    <p id="error" hidden="hidden" style="color: red;">There was an error processing this text. Please
+                        try again.</p>
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-6">
+            <canvas id="bankCodeChart"></canvas>
+        </div>
+    </div>
+</div>
+<script>
+  function categorizeText(text) {
+    if (text === "") {
+      chart.data.datasets[0].data = [0, 0, 0, 0];
+      chart.update();
+      $("#bankCodeAnalyzer").prop('readonly', false);
+      $("#loader").prop('hidden', true);
+    } else {
+      var settings = {
+        "async": true,
+        "crossDomain": true,
+        "url": "https://api.cyrano.ai/bankcode",
+        "method": "POST",
+        "headers": {
+          "x-api-key": "Hug3PclOlz2XEFZHmWTb2a88A5hnFiGb32sR64ud",
+          "Content-Type": "application/json"
+        },
+        "processData": false,
+        "data": JSON.stringify({content: text.replace(/(\r\n|\n|\r)/gm, ""), user_id: "1"})
+      };
+      $.ajax(settings)
+        .done(function (response) {
+            console.log(response);
+            scores = [0, 0, 0, 0];
+            try {
+              for (var i = 0; i < response.dimmensions.length; i++) {
+                switch (response.dimmensions[i].name) {
+                  case "Blueprint":
+                    scores[0] = response.dimmensions[i].value;
+                    break;
+                  case "Action":
+                    scores[1] = response.dimmensions[i].value;
+                    break;
+                  case "Nurturing":
+                    scores[2] = response.dimmensions[i].value;
+                    break;
+                  case "Knowledge":
+                    scores[3] = response.dimmensions[i].value;
+                    break;
+                  default:
+                    break;
+                }
+              }
+              chart.data.datasets[0].data = scores;
+              chart.update();
+            } catch (err) {
+              console.log(err);
+              $("#error").prop('hidden', false);
+              setTimeout(function () {
+                $("#error").prop('hidden', true);
+              }, 5000);
+            } finally {
+              $("#bankCodeAnalyzer").prop('readonly', false);
+              $("#loader").prop('hidden', true);
+            }
+          }
+        )
+        .fail(function (response) {
+            console.log(response);
+            $("#bankCodeAnalyzer").prop('readonly', false);
+            $("#loader").prop('hidden', true);
+          }
+        );
+    }
+  }
+
+  var chart = new Chart(document.getElementById("bankCodeChart"), {
+    "type": "bar",
+    "data": {
+      "labels": ["Blueprint", "Action", "Nurturing", "Knowledge"],
+      "datasets": [{
+        "data": [0, 0, 0, 0],
+        "label": "BANK Score",
+        "fill": true,
+        "backgroundColor": ["#004a81", "#b70000", "#faa000", "#176826"]
+      }]
+    },
+    "options": {"scales": {"yAxes": [{"ticks": {"beginAtZero": true}}]}}
+  });
+  // Init a timeout variable to be used below
+  var timeout = null;
+
+  setTimeout(function () {
+    $("#bankCodeAnalyzer").blur();
+  }, 500);
+
+  // Listen for keystroke events
+  $("#bankCodeAnalyzer").bind('input propertychange', function () {
+
+    clearTimeout(timeout);
+
+    // Make a new timeout set to go off in 800ms
+    timeout = setTimeout(function () {
+      $("#bankCodeAnalyzer").prop('readonly', true);
+      $("#loader").prop('hidden', false);
+      categorizeText($("#bankCodeAnalyzer").val());
+    }, 500);
+  });
+
+</script>
+
+</body>
+</html>
